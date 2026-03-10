@@ -523,7 +523,7 @@ export default function Dashboard() {
                     <div style={{ borderLeft: "2px solid #2a2a2a", marginLeft: 14, height: 8 }} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ background: "#1a1a1a", padding: "4px 8px", borderRadius: 4, color: "#888" }}>2</span>
-                      <span style={{ color: "#999" }}>AI detected escalation trigger (group 10+, rental 7+ days, cancellation, VIP tone, or low confidence)</span>
+                      <span style={{ color: "#999" }}>AI detected escalation trigger{selected.escalationReason ? `: ${selected.escalationReason}` : " (group 10+, rental 7+ days, cancellation, VIP tone)"}</span>
                     </div>
                     <div style={{ borderLeft: "2px solid #2a2a2a", marginLeft: 14, height: 8 }} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

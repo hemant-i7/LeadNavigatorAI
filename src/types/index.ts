@@ -12,6 +12,7 @@ export interface AgentResponse {
   category: string;
   confidence: number;
   escalate: boolean;
+  escalationReason?: string | null;
   estimatedValue: "Low" | "Medium" | "High";
   customerMood: "Excited" | "Urgent" | "Confused" | "Neutral";
   response: string;

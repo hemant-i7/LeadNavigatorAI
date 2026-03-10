@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
         response: "We're experiencing a brief interruption. A team member will contact you shortly.",
         reply: "We're experiencing a brief interruption. A team member will contact you shortly.",
         escalate: true,
+        escalationReason: "System error",
         vertical: "Unknown",
         category: "Error",
       },

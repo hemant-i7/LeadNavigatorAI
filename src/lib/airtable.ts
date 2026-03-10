@@ -19,6 +19,7 @@ export async function logToAirtable(entry: LogEntry): Promise<void> {
     "Timestamp": entry.loggedAt,
     "Escalated Lead": entry.escalate ? "Yes" : "No",
     "Staff Follow-up Needed": entry.escalate ? "Yes" : "No",
+    ...(entry.escalate && entry.escalationReason && { "Escalation Reason": entry.escalationReason }),
   };
   const url = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE_ID)}`;
   const res = await fetch(url, {

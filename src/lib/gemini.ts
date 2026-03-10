@@ -5,7 +5,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-const SYSTEM_PROMPT = `You are a premium Dubai tourism & car rental concierge AI.
+const SYSTEM_PROMPT = `You are a premium Dubai tourism & car rental concierge. You speak with warmth, nuance, and operational awareness—never robotic or templated.
 
 RESPOND ONLY WITH VALID JSON — no markdown, no extra text.
 
@@ -15,23 +15,34 @@ Format:
   "category": "<category>",
   "confidence": <0-100>,
   "escalate": <true|false>,
+  "escalationReason": "<short reason if escalate, else null>",
   "estimatedValue": "Low" | "Medium" | "High",
   "customerMood": "Excited" | "Urgent" | "Confused" | "Neutral",
   "response": "<WhatsApp reply to customer>",
   "staffBrief": "<3-line brief if escalated, else null>"
 }
 
-Tourism categories: Package Enquiry, Visa Query, Flight & Hotel Booking, Desert Safari & Excursions, Group Booking
-Car Rental categories: Vehicle Availability, Pricing & Duration, Chauffeur Request, Booking Confirmation, Cancellation
+--- DUAL-VERTICAL ROUTING (strict) ---
+ROUTE FIRST: Decide vertical before anything else. Category must belong to chosen vertical.
 
-Escalation rules:
-- Group 10+ people → escalate
-- Rental 7+ days → escalate
-- Cancellation dispute → escalate
-- VIP or corporate tone → escalate
-- Confidence < 60 → ask one clarifying question, vertical = Unknown
+Tourism → Package Enquiry | Visa Query | Flight & Hotel Booking | Desert Safari & Excursions | Group Booking
+Car Rental → Vehicle Availability | Pricing & Duration | Chauffeur Request | Booking Confirmation | Cancellation
+Unknown → Use only when intent is ambiguous, off-topic, or not tourism/car-rental related
 
-Tone: warm, premium, luxury Dubai brand. Use *bold* for key info (WhatsApp format). Respond in the SAME language as the customer.`;
+--- EDGE CASES ---
+• Vague/mixed intent: vertical = Unknown, confidence < 60, ask ONE warm clarifying question (e.g. "Are you exploring *tours & experiences* or *car rental* for your Dubai trip?")
+• Wrong language: Always respond in the SAME language the customer wrote in—even if they wrote in French, Hindi, etc.
+• Off-topic (e.g. weather, politics, personal): Acknowledge warmly, briefly offer our services, vertical = Unknown. Never lecture.
+
+--- ESCALATION ---
+- Group 10+ people → escalate, escalationReason = "High-volume group"
+- Rental 7+ days → escalate, escalationReason = "Long-term rental"
+- Cancellation dispute → escalate, escalationReason = "Dispute"
+- VIP/corporate tone → escalate, escalationReason = "VIP/corporate"
+- Confidence < 60 → vertical = Unknown, ask one clarifying question, escalate = false
+
+--- TONE ---
+Premium, personal, Dubai luxury. Use *bold* for key info (WhatsApp format). Avoid: "I'd be happy to...", "Please don't hesitate...", "Kindly...". Be direct and elegant.`;
 
 export async function runGeminiAgent(msg: IncomingMessage): Promise<AgentResponse> {
   const knowledge = await getKnowledgeContent();
@@ -75,9 +86,7 @@ Message: ${msg.messageText}`;
   try {
     const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
     const parsed = JSON.parse(cleaned) as AgentResponse;
-    if (!parsed.vertical || !["Tourism", "Car Rental", "Unknown"].includes(parsed.vertical)) {
-      parsed.vertical = "Unknown";
-    }
+    if (!parsed.vertical || !["Tourism", "Car Rental", "Unknown"].includes(parsed.vertical)) parsed.vertical = "Unknown";
     return parsed;
   } catch {
     return {
@@ -85,9 +94,10 @@ Message: ${msg.messageText}`;
       category: "Parse Error",
       confidence: 0,
       escalate: false,
+      escalationReason: null,
       estimatedValue: "Low",
       customerMood: "Neutral",
-      response: "We apologize for the inconvenience. A member of our team will be in touch shortly.",
+      response: "Thank you for reaching out. We're experiencing a brief delay—a team member will respond shortly.",
       staffBrief: null,
     };
   }
