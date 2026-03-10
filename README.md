@@ -1,16 +1,16 @@
 # WhatsApp Concierge Agent
 
-> AI-powered dual-vertical WhatsApp agent for Dubai tourism packages and car rentals. Routes enquiries, generates responses, logs leads, and escalates complex cases to human agents.
+> A smart receptionist for your WhatsApp. Handles tourism and car rental enquiries 24/7, responds in the customer's language, and hands off to your team when needed.
 
 ---
 
 ## What I Built
 
-- **Webhook intake** — `POST /api/webhook` receives messages (WhatsApp or manual). Detects vertical (Tourism | Car Rental | Unknown) and category (e.g. Desert Safari, Visa, Vehicle Availability).
-- **AI responses** — Google Gemini with structured JSON output; premium Dubai tone; multilingual (Arabic/English).
-- **Escalation logic** — Flags group 10+, rental 7+ days, cancellations, VIP tone, low confidence → staff brief for handoff.
-- **Lead logging** — MongoDB for persistence; optional Airtable for CRM views.
-- **Live dashboard** — Test chat, suggestion chips, enquiry table, escalation flow, knowledge base editing.
+- **Message handling** — When a customer writes, the system understands if they need tours (packages, visas, desert safaris, groups) or car rental (vehicles, pricing, chauffeurs, bookings). If it’s unclear, it asks one gentle clarifying question instead of guessing.
+- **AI replies** — Warm, professional Dubai-style responses. Works in Arabic and English.
+- **Escalation** — Flags high-value or tricky enquiries (group 10+, rental 7+ days, cancellations, VIP tone) so your staff get a short brief and can take over.
+- **Record keeping** — Every enquiry is saved so you can review conversations, filter by type, and follow up.
+- **Dashboard** — Test messages, see all enquiries, train staff using suggestion chips, and manage the knowledge the AI uses.
 
 ---
 
@@ -18,103 +18,34 @@
 
 | Decision | Reason |
 |----------|--------|
-| Coded workflow (Next.js API) vs n8n | Self-contained, deployable anywhere. Webhook can be wired to n8n, Zapier, or WhatsApp Business API. |
-| Gemini over OpenAI/Claude | Same capability; JSON mode for parseable output; cost-effective. |
-| MongoDB + Airtable | MongoDB for dashboard/analytics; Airtable for CRM and staff follow-up. |
-| LLM-based routing | More accurate than keyword rules for vague or mixed-intent messages. |
+| Custom-built app instead of no-code only | Runs anywhere, connects to any WhatsApp provider or automation tool. |
+| AI routing instead of fixed keywords | Handles vague or mixed messages more accurately. |
+| Two storage layers (internal + Airtable) | Internal for your dashboard; Airtable for CRM and staff follow-up if you use it. |
 
 ---
 
 ## Assumptions
 
-- WhatsApp provider sends `messageText` and `customerPhone`; `customerName` is optional.
-- Arabic detection is Unicode-based (`\u0600-\u06FF`); no full Arabic NLP.
-- Escalation rules: group 10+, rental 7+ days, cancellation dispute, VIP tone, confidence &lt; 60.
-- No multi-turn context; each message is processed independently.
+- Messages come with the text and phone number; customer name can be added when available.
+- Arabic is detected by script only; no advanced language understanding.
+- Escalation rules: group 10+, rental 7+ days, cancellation disputes, VIP tone, or low confidence.
+- Each message is handled on its own; no conversation memory yet.
 
 ---
 
 ## What I Would Add With More Time
 
-- Multi-turn conversation memory (per phone number).
-- OpenAI/Claude fallback if Gemini is down.
-- WhatsApp template messages and delivery status.
-- Role-based dashboard (agent vs manager view).
-- Arabic-specific embeddings for better intent detection.
+- Conversation memory so the AI remembers prior messages from the same customer.
+- Backup AI if the main one is unavailable.
+- Read receipts and delivery status in WhatsApp.
+- Different dashboard views for agents vs managers.
+- Stronger Arabic understanding.
 
 ---
 
-## Quick Start
+## For Developers
 
-```bash
-npm install
-cp .env.example .env   # Add GEMINI_API_KEY, MONGODB_URI
-npm run dev
-```
-
-- App: http://localhost:3000  
-- Dashboard: http://localhost:3000/dashboard  
-
----
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── api/
-│   │   ├── webhook/route.ts   # Main intake & AI processing
-│   │   ├── logs/route.ts      # Enquiry list for dashboard
-│   │   └── knowledge/route.ts  # Knowledge base CRUD
-│   ├── dashboard/page.tsx     # Live ops dashboard
-│   ├── layout.tsx
-│   └── page.tsx               # Landing → Dashboard
-├── lib/
-│   ├── gemini.ts              # AI calls
-│   ├── language.ts            # Arabic/English detection
-│   ├── mongodb.ts
-│   ├── airtable.ts
-│   ├── knowledge.ts
-│   └── store.ts
-└── types/index.ts
-```
-
----
-
-## API
-
-**POST /api/webhook**
-
-```json
-// Request
-{ "messageText": "Desert safari for 4", "customerPhone": "+971501234567", "customerName": "Sara" }
-
-// Response
-{ "id": "uuid", "vertical": "Tourism", "category": "Desert Safari & Excursions",
-  "confidence": 92, "escalate": false, "response": "Welcome! Our *Desert Safari*...", "reply": "..." }
-```
-
-**GET /api/logs** — Latest 200 enquiries (for dashboard).
-
----
-
-## Environment Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `GEMINI_API_KEY` | Required. Google AI API key |
-| `MONGODB_URI` | Required. MongoDB Atlas connection |
-| `AIRTABLE_API_TOKEN` | Optional. Airtable PAT |
-| `AIRTABLE_BASE_ID` | Optional. Base ID from URL |
-| `AIRTABLE_TABLE_ID` | Optional. Table name, e.g. `Enquiries` |
-
----
-
-## n8n Integration
-
-1. Webhook node receives WhatsApp payload.
-2. HTTP Request: `POST https://your-app.com/api/webhook` with `messageText`, `customerPhone`, `customerName`.
-3. Use `reply` from response to send back to the customer.
+See [DEVELOPER.md](./DEVELOPER.md) for setup, API details, and technical notes.
 
 ---
 
