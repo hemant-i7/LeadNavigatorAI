@@ -1,4 +1,5 @@
 import { IncomingMessage, AgentResponse } from "@/types";
+import { getKnowledgeContent } from "./knowledge";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -33,6 +34,11 @@ Escalation rules:
 Tone: warm, premium, luxury Dubai brand. Use *bold* for key info (WhatsApp format). Respond in the SAME language as the customer.`;
 
 export async function runGeminiAgent(msg: IncomingMessage): Promise<AgentResponse> {
+  const knowledge = await getKnowledgeContent();
+  const knowledgeBlock = knowledge
+    ? `\n\nCOMPANY KNOWLEDGE (use this to answer with accurate company-specific info):\n${knowledge}\n`
+    : "";
+
   const userPrompt = `Customer name: ${msg.customerName || "Unknown"}
 Language: ${msg.language}
 Message: ${msg.messageText}`;
@@ -41,7 +47,7 @@ Message: ${msg.messageText}`;
     contents: [
       {
         parts: [
-          { text: SYSTEM_PROMPT + "\n\n" + userPrompt }
+          { text: SYSTEM_PROMPT + knowledgeBlock + "\n\n" + userPrompt }
         ]
       }
     ],

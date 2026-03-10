@@ -52,6 +52,9 @@ export default function Dashboard() {
   const [testSending, setTestSending] = useState(false);
   const [testChatHistory, setTestChatHistory] = useState<ChatMsg[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false);
+  const [knowledgeContent, setKnowledgeContent] = useState("");
+  const [knowledgeSaving, setKnowledgeSaving] = useState(false);
 
   const sendTestMessage = async (msg: string) => {
     if (!msg.trim() || testSending) return;
@@ -99,6 +102,26 @@ export default function Dashboard() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [testChatHistory]);
+
+  const loadKnowledge = async () => {
+    const res = await fetch("/api/knowledge");
+    const data = await res.json();
+    setKnowledgeContent(data.content || "");
+  };
+
+  const saveKnowledge = async () => {
+    setKnowledgeSaving(true);
+    try {
+      await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: knowledgeContent }),
+      });
+      setKnowledgeModalOpen(false);
+    } finally {
+      setKnowledgeSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetchLogs();
@@ -154,11 +177,42 @@ export default function Dashboard() {
             DUBAI TOURISM & CAR RENTAL — WHATSAPP AGENT
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: ACCENT }} />
-          <span style={{ fontSize: 11, color: ACCENT, letterSpacing: 1 }}>LIVE</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={() => { setKnowledgeModalOpen(true); loadKnowledge(); }}
+            style={{ background: "#1a1a1a", border: "1px solid #333", color: "#888", padding: "6px 12px", fontSize: 11, borderRadius: 4, cursor: "pointer", fontFamily: "inherit" }}
+          >
+            + Knowledge Base
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: ACCENT }} />
+            <span style={{ fontSize: 11, color: ACCENT, letterSpacing: 1 }}>LIVE</span>
+          </div>
         </div>
       </div>
+
+      {knowledgeModalOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setKnowledgeModalOpen(false)}>
+          <div style={{ background: "#0d0d0d", border: "1px solid #1e1e1e", borderRadius: 8, width: "90%", maxWidth: 560, maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 20, borderBottom: "1px solid #1a1a1a" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, color: ACCENT, marginBottom: 4 }}>Knowledge Base</div>
+              <div style={{ fontSize: 12, color: "#666" }}>You can train the assistant using your own company knowledge.</div>
+            </div>
+            <textarea
+              value={knowledgeContent}
+              onChange={(e) => setKnowledgeContent(e.target.value)}
+              placeholder="Paste FAQs, policies, pricing, package details, contact info... The chatbot will use this context when answering customers."
+              style={{ flex: 1, minHeight: 200, maxHeight: 400, padding: 16, background: "#141414", border: "none", color: "#e8e0d0", fontSize: 13, fontFamily: "inherit", resize: "vertical", overflow: "auto" }}
+            />
+            <div style={{ padding: 16, borderTop: "1px solid #1a1a1a", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={() => setKnowledgeModalOpen(false)} className="close-btn">Cancel</button>
+              <button onClick={saveKnowledge} disabled={knowledgeSaving} style={{ background: ACCENT, color: "#000", border: "none", padding: "8px 20px", borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: knowledgeSaving ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+                {knowledgeSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, borderBottom: "1px solid #1e1e1e" }}>
         {[

@@ -14,3 +14,7 @@ export async function getDb(): Promise<Db> {
 export function getChatsCollection(): Promise<Collection<LogEntry>> {
   return getDb().then((db) => db.collection<LogEntry>("chats"));
 }
+
+export function getKnowledgeCollection() {
+  return getDb().then((db) => db.collection<{ id: string; content: string; updatedAt: string }>("knowledge_base"));
+}

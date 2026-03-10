@@ -33,7 +33,9 @@ A dual-vertical WhatsApp enquiry agent for a Dubai company operating in **touris
 - Arabic vs English detection via Unicode range (`\u0600-\u06FF`).
 - AI responds in the same language as the customer.
 
-### 5. Extra Feature: Live Operations Dashboard ✓
+### 5. Extra Features ✓
+
+**A. Live Operations Dashboard**
 
 **Why this helps a 50-person WhatsApp team:**
 
@@ -43,6 +45,13 @@ A dual-vertical WhatsApp enquiry agent for a Dubai company operating in **touris
 - **Real-time view**: Filter by Tourism / Car Rental / Escalated; see stats and full conversation context.
 
 At scale, teams need to train, demo, and triage without waiting for live WhatsApp traffic. This dashboard reduces that friction.
+
+**B. Knowledge Base (Custom AI Training)**
+
+- **+ Knowledge Base** button in the dashboard opens a modal.
+- Paste company FAQs, policies, pricing, package details, contact info — any data the assistant should know.
+- The chatbot uses this context when answering customers, so it feels like **custom AI trained on your company**.
+- Tagline: *"You can train the assistant using your own company knowledge."*
 
 ---
 
@@ -66,7 +75,7 @@ Incoming message → POST /api/webhook
 |----------|--------|
 | Coded workflow (Next.js API) vs n8n | Self-contained, deployable anywhere. Webhook can be triggered by n8n, Zapier, or WhatsApp Business API. |
 | Gemini over OpenAI/Claude | Same capability; JSON mode (`responseMimeType`) ensures parseable output; cost-effective. |
-| MongoDB only | Single source of truth for enquiries, dashboard, and future CRM/analytics. |
+| MongoDB + Airtable | MongoDB for dashboard/analytics; Airtable for CRM and staff follow-up views. |
 | LLM-based routing | More accurate than keyword rules for vague or mixed-intent messages. |
 
 ---
