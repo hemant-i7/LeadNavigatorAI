@@ -51,7 +51,7 @@ export async function runGeminiAgent(msg: IncomingMessage): Promise<AgentRespons
     : "";
 
   const userPrompt = `Customer name: ${msg.customerName || "Unknown"}
-Language: ${msg.language}
+Detected language: ${msg.language}. REQUIRED: Write the "response" field in ${msg.language}.
 Message: ${msg.messageText}`;
 
   const body = {

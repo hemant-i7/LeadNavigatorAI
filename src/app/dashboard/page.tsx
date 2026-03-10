@@ -12,6 +12,8 @@ const SUGGESTIONS = [
   { label: "Chauffeur", msg: "Luxury car with chauffeur for wedding", vertical: "Car Rental" },
   { label: "Rental 10 days", msg: "Need sedan for 10 days - airport pickup", vertical: "Car Rental" },
   { label: "Cancel Booking", msg: "I need to cancel my booking - wrong dates entered", vertical: "Car Rental" },
+  { label: "صحراء", msg: "أريد رحلة سفاري في الصحراء لأربعة أشخاص", vertical: "Tourism" },
+  { label: "استئجار سيارة", msg: "هل تتوفر سيارة دفع رباعي لمدة 3 أيام؟ كم السعر؟", vertical: "Car Rental" },
 ];
 
 const VERTICAL_COLOR: Record<string, string> = {

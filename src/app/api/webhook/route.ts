@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runGeminiAgent } from "@/lib/gemini";
+import { detectLanguage } from "@/lib/language";
 import { addEntry } from "@/lib/store";
 import { logToAirtable } from "@/lib/airtable";
 import { IncomingMessage, LogEntry } from "@/types";
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       customerName: String(body.customerName ?? ""),
       timestamp: new Date().toISOString(),
       phoneNumberId: String(body.phoneNumberId ?? ""),
-      language: /[\u0600-\u06FF]/.test(messageText) ? "Arabic" : "English",
+      language: detectLanguage(messageText),
     };
 
     const agentResponse = await runGeminiAgent(incoming);
