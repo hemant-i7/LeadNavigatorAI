@@ -1,12 +1,17 @@
 import { LogEntry } from "@/types";
+import { getChatsCollection } from "./mongodb";
 
-const STORE: LogEntry[] = [];
-
-export function addEntry(entry: LogEntry): void {
-  STORE.unshift(entry);
-  if (STORE.length > 500) STORE.pop();
+export async function addEntry(entry: LogEntry): Promise<void> {
+  const coll = await getChatsCollection();
+  await coll.insertOne(entry);
 }
 
-export function getEntries(): LogEntry[] {
-  return STORE.slice(0, 200);
+export async function getEntries(): Promise<LogEntry[]> {
+  const coll = await getChatsCollection();
+  const docs = await coll
+    .find({})
+    .sort({ loggedAt: -1 })
+    .limit(200)
+    .toArray();
+  return docs as LogEntry[];
 }

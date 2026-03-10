@@ -1,96 +1,184 @@
-# Synops Labs - WhatsApp Enquiry Agent (Next.js + TS)
+# WhatsApp Enquiry Agent — Dubai Tourism & Car Rental
 
-This repo contains the core WhatsApp enquiry agent for a Dubai tourism + car rental business. It accepts a message payload, detects the vertical and category, responds in English or Arabic, logs leads to Airtable (or Sheets webhook), and flags high-value enquiries for human follow-up.
+**Candidate:** Hemant Kadam  
+**Role:** AI Automation Engineer — Synops Labs Assessment
 
-## What I built
+A dual-vertical WhatsApp enquiry agent for a Dubai company operating in **tourism packages** and **car rentals**. It accepts incoming messages, routes them by vertical and category, generates AI responses, logs leads, and escalates complex enquiries to human agents.
 
-- **Webhook handler**: `POST /api/webhook` processes inbound WhatsApp messages.
-- **Dual-vertical routing**: Tourism vs Car Rental + subcategory classification.
-- **AI responses**: OpenAI or Anthropic (Claude) with fallback templates.
-- **Multilingual detection**: Basic Arabic vs English routing.
-- **Lead logging**: Airtable by default, or Google Sheets webhook.
-- **Escalation path**: Group bookings and long-term/driver requests trigger handoff with a clean summary.
-- **Extra feature (my choice)**: **Ticket ID + priority tagging**. Every enquiry gets a ticket ID and a priority level (low/normal/high). This makes it easier for a 50-agent team to triage quickly and track response SLAs in WhatsApp or CRM.
+---
 
-## Key decisions
+## What I Built
 
-- **Coded workflow instead of n8n**: The system is implemented as a Next.js API route to keep the core logic self-contained and deployable. It can be placed behind an n8n webhook or WhatsApp provider.
-- **Rule-based classification**: Lightweight keyword routing for speed and clarity; can be upgraded to LLM-based classification later.
-- **Airtable logging**: Simple REST integration, configurable by environment variables. Google Sheets is supported via a webhook endpoint (Apps Script or n8n).
+### 1. Intake & Routing ✓
+
+- **Webhook**: `POST /api/webhook` receives incoming WhatsApp messages (or manual trigger).
+- **Vertical detection**: Tourism | Car Rental | Unknown.
+- **Category classification**:
+  - **Tourism**: Package Enquiry, Visa Query, Flight & Hotel Booking, Desert Safari & Excursions, Group Booking
+  - **Car Rental**: Vehicle Availability, Pricing & Duration, Chauffeur Request, Booking Confirmation, Cancellation
+
+### 2. AI Response Generation ✓
+
+- Uses **Google Gemini** (Claude/OpenAI equivalent) with structured JSON output.
+- Premium Dubai tourism tone — warm, confident, helpful.
+- Escalation for high-value/complex cases (group 10+, rental 7+ days, cancellation, VIP tone, low confidence) with a 3-line **staff brief** for handoff.
+
+### 3. Lead Capture & CRM Logging ✓
+
+- **MongoDB**: Every enquiry logged (customer name, message, vertical, category, AI response, timestamp, escalate flag). Persistent storage for dashboard and analytics.
+- **Airtable**: Optional. Logs every enquiry with customer name, message, vertical, category, AI response, timestamp, Escalated Lead (Yes/No), Staff Follow-up Needed (Yes/No). Filter by Escalated Lead = Yes for staff follow-up.
+
+### 4. Multilingual Detection ✓
+
+- Arabic vs English detection via Unicode range (`\u0600-\u06FF`).
+- AI responds in the same language as the customer.
+
+### 5. Extra Feature: Live Operations Dashboard ✓
+
+**Why this helps a 50-person WhatsApp team:**
+
+- **Test Chat**: Managers can send test messages and see AI responses without using WhatsApp. Instant validation of prompts and routing.
+- **Category Suggestions**: One-click chips (Desert Safari, Visa Query, Group 12+, Car Rental 10 days, etc.) mapped to real categories — great for training staff on what triggers what.
+- **Escalation Flow**: When an enquiry is escalated, the UI shows the flow (Customer → AI detects trigger → Staff brief → Human takes over). Helps staff understand when and why handoffs happen.
+- **Real-time view**: Filter by Tourism / Car Rental / Escalated; see stats and full conversation context.
+
+At scale, teams need to train, demo, and triage without waiting for live WhatsApp traffic. This dashboard reduces that friction.
+
+---
+
+## Architecture
+
+```
+Incoming message → POST /api/webhook
+    → Language detection (Arabic/English)
+    → Gemini: vertical + category + response + escalate + staffBrief
+    → Save to MongoDB
+    → Return response
+```
+
+**Dashboard** (`/dashboard`): Test chat, suggestion chips, enquiry table, detail panel with escalation flow.
+
+---
+
+## Key Decisions
+
+| Decision | Reason |
+|----------|--------|
+| Coded workflow (Next.js API) vs n8n | Self-contained, deployable anywhere. Webhook can be triggered by n8n, Zapier, or WhatsApp Business API. |
+| Gemini over OpenAI/Claude | Same capability; JSON mode (`responseMimeType`) ensures parseable output; cost-effective. |
+| MongoDB only | Single source of truth for enquiries, dashboard, and future CRM/analytics. |
+| LLM-based routing | More accurate than keyword rules for vague or mixed-intent messages. |
+
+---
 
 ## Routes
 
-`POST /api/webhook`
+### `POST /api/webhook`
 
-Request body:
-
+**Request:**
 ```json
 {
-  "text": "Need a desert safari for 4 people",
-  "customerName": "Sara",
+  "messageText": "Need desert safari for 4 people",
   "customerPhone": "+971501234567",
-  "timestamp": "2026-03-09T10:05:00Z"
+  "customerName": "Sara"
 }
 ```
 
-Response:
-
+**Response:**
 ```json
 {
-  "ok": true,
-  "ticketId": "DX-20260309-8K3TQZ",
-  "language": "en",
-  "escalated": false,
-  "priority": "low",
-  "vertical": "tourism",
-  "category": "desert_safari_excursions",
-  "response": "...",
-  "handoffSummary": null
+  "id": "uuid",
+  "vertical": "Tourism",
+  "category": "Desert Safari & Excursions",
+  "confidence": 92,
+  "escalate": false,
+  "estimatedValue": "Medium",
+  "customerMood": "Excited",
+  "response": "Welcome! Our *Desert Safari* packages...",
+  "staffBrief": null,
+  "reply": "..."
 }
 ```
 
-## Running locally
+### `GET /api/logs`
+
+Returns latest 200 enquiries from MongoDB (for dashboard).
+
+---
+
+## Running Locally
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env
+# Edit .env with GEMINI_API_KEY, MONGODB_URI, and optionally Airtable vars
 npm run dev
 ```
 
-## Environment variables
+- App: http://localhost:3000  
+- Dashboard: http://localhost:3000/dashboard  
 
-- `LLM_PROVIDER`: `openai` or `anthropic`
-- `OPENAI_API_KEY`, `OPENAI_MODEL`
-- `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`
-- `LOG_DESTINATION`: `airtable`, `sheets`, or any other value for console logging
-- `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID`, `AIRTABLE_TABLE`
-- `SHEETS_WEBHOOK_URL`: Apps Script or n8n endpoint that appends a row
+---
 
-## n8n integration (optional)
+## Environment Variables
 
-1. Use an n8n Webhook node to receive WhatsApp messages.
-2. Add an HTTP Request node that `POST`s to `/api/webhook` with the payload.
-3. Optionally connect a Sheets/Airtable node for double logging or staff alerts.
+| Variable | Purpose |
+|----------|---------|
+| `GEMINI_API_KEY` | Google AI API key |
+| `MONGODB_URI` | MongoDB Atlas connection string |
+| `AIRTABLE_API_TOKEN` | Airtable Personal Access Token (optional) |
+| `AIRTABLE_BASE_ID` | Airtable base ID from URL (optional) |
+| `AIRTABLE_TABLE_ID` | Table name or ID, e.g. `Enquiries` (optional) |
+
+### Airtable Setup
+
+Create a table with columns: **Customer Name**, **Message**, **Vertical**, **Category**, **AI Response**, **Timestamp**, **Status**, **Phone**, **Language**, **Confidence**, **Estimated Value**, **Customer Mood**, **Escalated** (checkbox), **Staff Brief**. Filter by Status = "Escalated" for staff follow-up.
+
+---
 
 ## Assumptions
 
-- WhatsApp provider sends a single message string (no attachments for this demo).
-- Arabic detection is Unicode-range based; full NLP is out of scope.
-- Long-term rentals and group bookings should be escalated.
+- WhatsApp provider sends `messageText` and `customerPhone`; `customerName` is optional.
+- Arabic detection is Unicode-based; no full Arabic NLP.
+- Escalation rules: group 10+, rental 7+ days, cancellation dispute, VIP tone, confidence &lt; 60.
+- No multi-turn context yet; each message is processed independently.
 
-## What I would add with more time
+---
 
-- Multi-turn context memory per phone number.
-- LLM-based classification for higher accuracy.
-- WhatsApp template message sending and delivery status tracking.
-- Admin dashboard with filters by ticket ID, priority, and SLA.
+## n8n Integration (Optional)
 
-## Loom walkthrough
+1. n8n Webhook node receives WhatsApp payload.
+2. HTTP Request node `POST`s to `https://your-app.com/api/webhook` with:
+   - `messageText` (string)
+   - `customerPhone` (string)
+   - `customerName` (optional)
+3. Response contains `reply` for sending back to the customer.
 
-Record a 5-7 minute demo covering:
+---
 
-- The webhook flow and classification logic
-- English vs Arabic detection
-- Escalation + handoff summary
-- Airtable/Sheets logging
-- Example messages for tourism and car rental
+## What I Would Add With More Time
+
+- Multi-turn conversation memory (per phone number).
+- OpenAI/Claude as fallback if Gemini is down.
+- WhatsApp template messages and delivery status.
+- Role-based dashboard (agent vs manager view).
+- Arabic-specific embeddings for better intent detection.
+
+---
+
+## Loom Walkthrough (5–7 min)
+
+Suggested script for a non-technical client:
+
+1. **Problem**: Manual WhatsApp handling, inconsistent, high cost.
+2. **Solution**: AI agent that routes, responds, and escalates.
+3. **Demo**: Open dashboard → use suggestion chips → show vertical/category/response → pick escalated item → explain escalation flow.
+4. **Logging**: Show MongoDB storing enquiries (dashboard pulls from DB).
+5. **Arabic**: Send a message in Arabic, show response in Arabic.
+
+---
+
+## Submission
+
+- **To**: info@synopslabs.com  
+- **Subject**: Assessment Submission – Hemant Kadam

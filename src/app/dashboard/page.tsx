@@ -1,10 +1,22 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogEntry } from "@/types";
 
+const ACCENT = "#f97316"; // orange
+
+const SUGGESTIONS = [
+  { label: "Desert Safari", msg: "Interested in desert safari for 4 people", vertical: "Tourism" },
+  { label: "Visa Query", msg: "What are visa requirements for UAE visit?", vertical: "Tourism" },
+  { label: "Group 12+", msg: "We are 15 people for corporate event - need package", vertical: "Tourism" },
+  { label: "Car 3 days", msg: "SUV available for 3 days? What's the price?", vertical: "Car Rental" },
+  { label: "Chauffeur", msg: "Luxury car with chauffeur for wedding", vertical: "Car Rental" },
+  { label: "Rental 10 days", msg: "Need sedan for 10 days - airport pickup", vertical: "Car Rental" },
+  { label: "Cancel Booking", msg: "I need to cancel my booking - wrong dates entered", vertical: "Car Rental" },
+];
+
 const VERTICAL_COLOR: Record<string, string> = {
-  Tourism: "#d4a853",
-  "Car Rental": "#5b9bd5",
+  Tourism: "#f97316",
+  "Car Rental": "#3b82f6",
   Unknown: "#888",
 };
 
@@ -21,11 +33,61 @@ const VALUE_DOT: Record<string, string> = {
   Low: "#f87171",
 };
 
+const isFromWhatsApp = (phone: string) => !/^test-/.test(phone);
+
+const WhatsAppIcon = ({ size = 16 }: { size?: number }) => (
+  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: size, height: size, padding: "0 4px", borderRadius: 4, background: "#25D366", color: "white", fontSize: 10, fontWeight: 600, flexShrink: 0 }} title="From WhatsApp">WA</span>
+);
+
+type ChatMsg = { role: "user" | "assistant"; text: string; meta?: { vertical: string; category: string; escalate: boolean } };
+
 export default function Dashboard() {
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [selected, setSelected] = useState<LogEntry | null>(null);
   const [filter, setFilter] = useState<"All" | "Tourism" | "Car Rental" | "Escalated">("All");
   const [loading, setLoading] = useState(true);
+  const [testInput, setTestInput] = useState("");
+  const [testPhone, setTestPhone] = useState("");
+  const [testName, setTestName] = useState("Test User");
+  const [testSending, setTestSending] = useState(false);
+  const [testChatHistory, setTestChatHistory] = useState<ChatMsg[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const sendTestMessage = async (msg: string) => {
+    if (!msg.trim() || testSending) return;
+    setTestSending(true);
+    setTestChatHistory((h) => [...h, { role: "user", text: msg.trim() }]);
+    setTestInput("");
+    const phone = testPhone.trim() || "test-dashboard-" + Date.now();
+    try {
+      const res = await fetch("/api/webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageText: msg.trim(),
+          customerPhone: phone,
+          customerName: testName.trim() || "Test User",
+        }),
+      });
+      const data = await res.json();
+      setTestChatHistory((h) => [
+        ...h,
+        {
+          role: "assistant",
+          text: data.response || data.reply || "No response",
+          meta: { vertical: data.vertical, category: data.category, escalate: data.escalate },
+        },
+      ]);
+      fetchLogs();
+    } catch (e) {
+      setTestChatHistory((h) => [
+        ...h,
+        { role: "assistant", text: "Request failed.", meta: { vertical: "Error", category: "Error", escalate: true } },
+      ]);
+    } finally {
+      setTestSending(false);
+    }
+  };
 
   const fetchLogs = async () => {
     const res = await fetch("/api/logs");
@@ -33,6 +95,10 @@ export default function Dashboard() {
     setEntries(data);
     setLoading(false);
   };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [testChatHistory]);
 
   useEffect(() => {
     fetchLogs();
@@ -53,6 +119,10 @@ export default function Dashboard() {
     escalated: entries.filter((e) => e.escalate).length,
   };
 
+  const selectedHistory = selected
+    ? entries.filter((e) => e.phone === selected.phone).sort((a, b) => new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime())
+    : [];
+
   return (
     <div style={{ fontFamily: "'DM Mono', monospace", background: "#0d0d0d", minHeight: "100vh", color: "#e8e0d0" }}>
       <style>{`
@@ -60,15 +130,15 @@ export default function Dashboard() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #1a1a1a; }
-        ::-webkit-scrollbar-thumb { background: #d4a853; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: #f97316; border-radius: 2px; }
         .entry-row { transition: background 0.15s; cursor: pointer; }
         .entry-row:hover { background: #1c1c1c !important; }
         .pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
         .filter-btn { background: none; border: 1px solid #2a2a2a; color: #888; padding: 6px 14px; border-radius: 4px; font-family: inherit; font-size: 12px; cursor: pointer; transition: all 0.15s; }
-        .filter-btn.active { border-color: #d4a853; color: #d4a853; }
+        .filter-btn.active { border-color: #f97316; color: #f97316; }
         .filter-btn:hover { border-color: #555; color: #ccc; }
         .close-btn { background: none; border: 1px solid #333; color: #888; padding: 4px 12px; border-radius: 4px; font-family: inherit; font-size: 12px; cursor: pointer; }
-        .close-btn:hover { border-color: #d4a853; color: #d4a853; }
+        .close-btn:hover { border-color: #f97316; color: #f97316; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.3s ease; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -77,7 +147,7 @@ export default function Dashboard() {
 
       <div style={{ borderBottom: "1px solid #1e1e1e", padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: "#d4a853", letterSpacing: 1 }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 700, color: ACCENT, letterSpacing: 1 }}>
             CONCIERGE CONSOLE
           </div>
           <div style={{ fontSize: 11, color: "#555", marginTop: 2, letterSpacing: 2 }}>
@@ -85,16 +155,16 @@ export default function Dashboard() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
-          <span style={{ fontSize: 11, color: "#555", letterSpacing: 1 }}>LIVE</span>
+          <div className="pulse" style={{ width: 6, height: 6, borderRadius: "50%", background: ACCENT }} />
+          <span style={{ fontSize: 11, color: ACCENT, letterSpacing: 1 }}>LIVE</span>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, borderBottom: "1px solid #1e1e1e" }}>
         {[
           { label: "TOTAL ENQUIRIES", value: stats.total, color: "#e8e0d0" },
-          { label: "TOURISM", value: stats.tourism, color: "#d4a853" },
-          { label: "CAR RENTAL", value: stats.carRental, color: "#5b9bd5" },
+          { label: "TOURISM", value: stats.tourism, color: ACCENT },
+          { label: "CAR RENTAL", value: stats.carRental, color: "#3b82f6" },
           { label: "ESCALATED", value: stats.escalated, color: "#f87171" },
         ].map((s) => (
           <div key={s.label} style={{ padding: "20px 32px", borderRight: "1px solid #1e1e1e" }}>
@@ -105,6 +175,155 @@ export default function Dashboard() {
       </div>
 
       <div style={{ display: "flex", height: "calc(100vh - 160px)" }}>
+        {/* Left: Test Chat */}
+        <div style={{ width: 320, borderRight: "1px solid #1e1e1e", display: "flex", flexDirection: "column", background: "#0a0a0a", minHeight: 0 }}>
+          <div style={{ padding: 12, borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: "#555", letterSpacing: 2, marginBottom: 8 }}>TEST CHAT</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: "#444", marginBottom: 4 }}>Phone</div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <input
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
+                    placeholder="+971501234567"
+                    style={{ flex: 1, background: "#141414", border: "1px solid #1e1e1e", borderRadius: 4, padding: "6px 10px", fontSize: 11, color: "#e8e0d0", fontFamily: "inherit" }}
+                  />
+                  <button
+                    onClick={() => testPhone.trim() && navigator.clipboard.writeText(testPhone.trim())}
+                    disabled={!testPhone.trim()}
+                    style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 4, padding: "6px 10px", fontSize: 10, color: "#888", cursor: testPhone.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}
+                    title="Copy number"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={() => navigator.clipboard.readText().then((t) => setTestPhone((p) => t || p))}
+                    style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 4, padding: "6px 10px", fontSize: 10, color: "#888", cursor: "pointer", fontFamily: "inherit" }}
+                    title="Paste number"
+                  >
+                    Paste
+                  </button>
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: "#444", marginBottom: 4 }}>Name</div>
+                <input
+                  value={testName}
+                  onChange={(e) => setTestName(e.target.value)}
+                  placeholder="Name"
+                  style={{ width: "100%", background: "#141414", border: "1px solid #1e1e1e", borderRadius: 4, padding: "6px 10px", fontSize: 11, color: "#e8e0d0", fontFamily: "inherit" }}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => { setTestInput(s.msg); sendTestMessage(s.msg); }}
+                  disabled={testSending}
+                  style={{
+                    background: (VERTICAL_COLOR[s.vertical] || "#888") + "22",
+                    color: VERTICAL_COLOR[s.vertical] || "#888",
+                    border: `1px solid ${(VERTICAL_COLOR[s.vertical] || "#888")}44`,
+                    padding: "5px 8px",
+                    borderRadius: 6,
+                    fontSize: 10,
+                    cursor: testSending ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    opacity: testSending ? 0.6 : 1,
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+            {testChatHistory.length === 0 ? (
+              <div style={{ color: "#444", fontSize: 11, textAlign: "center", padding: 24 }}>
+                Send a message or click a suggestion to start
+              </div>
+            ) : (
+              <>
+              {testChatHistory.map((m, i) => (
+                <div
+                  key={i}
+                  className="fade-in"
+                  style={{
+                    alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                    maxWidth: "90%",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                      background: m.role === "user" ? "#25D366" : "#141414",
+                      color: m.role === "user" ? "#000" : "#c8bfa8",
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      border: m.role === "user" ? "none" : "1px solid #1e1e1e",
+                    }}
+                  >
+                    {m.text}
+                  </div>
+                  {m.meta && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6, marginLeft: m.role === "user" ? 0 : 4 }}>
+                      <span className="pill" style={{ background: (VERTICAL_COLOR[m.meta.vertical] || "#888") + "22", color: VERTICAL_COLOR[m.meta.vertical] || "#888", border: `1px solid ${(VERTICAL_COLOR[m.meta.vertical] || "#888")}44`, fontSize: 9 }}>
+                        {m.meta.vertical}
+                      </span>
+                      <span className="pill" style={{ background: "#1e1e1e", color: "#888", fontSize: 9 }}>{m.meta.category}</span>
+                      {m.meta.escalate && <span className="pill" style={{ background: "#f8717122", color: "#f87171", border: "1px solid #f8717144", fontSize: 9 }}>Escalated</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+              </>
+            )}
+          </div>
+          <div style={{ padding: "12px 12px 20px", borderTop: "1px solid #1a1a1a", flexShrink: 0, background: "#0a0a0a" }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={testInput}
+                onChange={(e) => setTestInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendTestMessage(testInput)}
+                placeholder="Type message..."
+                disabled={testSending}
+                style={{
+                  flex: 1,
+                  background: "#141414",
+                  border: "1px solid #1e1e1e",
+                  borderRadius: 20,
+                  padding: "10px 14px",
+                  fontSize: 12,
+                  color: "#e8e0d0",
+                  fontFamily: "inherit",
+                }}
+              />
+              <button
+                onClick={() => sendTestMessage(testInput)}
+                disabled={testSending || !testInput.trim()}
+                style={{
+                  background: ACCENT,
+                  color: "#000",
+                  border: "none",
+                  borderRadius: 50,
+                  padding: "10px 16px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: testSending || !testInput.trim() ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                  opacity: testSending || !testInput.trim() ? 0.6 : 1,
+                }}
+              >
+                {testSending ? "..." : "Send"}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "14px 32px", borderBottom: "1px solid #1a1a1a", display: "flex", gap: 8 }}>
             {(["All", "Tourism", "Car Rental", "Escalated"] as const).map((f) => (
@@ -145,8 +364,13 @@ export default function Dashboard() {
                         {new Date(e.loggedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                       </td>
                       <td style={{ padding: "12px 16px", fontSize: 12 }}>
-                        <div style={{ color: "#c8bfa8" }}>{e.customerName || "Unknown"}</div>
-                        <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{e.phone}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {isFromWhatsApp(e.phone) && <WhatsAppIcon size={16} />}
+                          <div>
+                            <div style={{ color: "#c8bfa8" }}>{e.customerName || "Unknown"}</div>
+                            <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{e.phone}</div>
+                          </div>
+                        </div>
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <span className="pill" style={{ background: (VERTICAL_COLOR[e.vertical] || "#888") + "22", color: VERTICAL_COLOR[e.vertical] || "#888", border: `1px solid ${(VERTICAL_COLOR[e.vertical] || "#888")}44` }}>
@@ -176,10 +400,16 @@ export default function Dashboard() {
           <div className="fade-in" style={{ width: 360, borderLeft: "1px solid #1e1e1e", overflow: "auto", padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: "#d4a853" }}>
-                  {selected.customerName || "Unknown Customer"}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {isFromWhatsApp(selected.phone) && <WhatsAppIcon size={20} />}
+                  <div>
+                    <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: ACCENT }}>
+                      {selected.customerName || "Unknown Customer"}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{selected.phone}</div>
+                    {isFromWhatsApp(selected.phone) && <div style={{ fontSize: 10, color: "#25D366", marginTop: 2 }}>via WhatsApp</div>}
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: "#444", marginTop: 2 }}>{selected.phone}</div>
               </div>
               <button className="close-btn" onClick={() => setSelected(null)}>✕</button>
             </div>
@@ -193,34 +423,70 @@ export default function Dashboard() {
                 ["Value", selected.estimatedValue],
                 ["Mood", selected.customerMood],
               ].map(([k, v]) => (
-                <div key={k} style={{ background: "#141414", padding: "10px 12px", borderRadius: 4, border: "1px solid #1e1e1e" }}>
+                <div key={k} style={{ background: "#141414", padding: "10px 12px", borderRadius: 6, border: "1px solid #1e1e1e", borderLeft: k === "Vertical" ? `3px solid ${VERTICAL_COLOR[String(v)] || "#888"}` : undefined }}>
                   <div style={{ fontSize: 10, color: "#444", marginBottom: 4, letterSpacing: 1 }}>{k}</div>
-                  <div style={{ fontSize: 12, color: "#c8bfa8" }}>{String(v)}</div>
+                  <div style={{ fontSize: 12, color: "#c8bfa8", fontWeight: k === "Vertical" ? 600 : 400 }}>{String(v)}</div>
                 </div>
               ))}
             </div>
 
             <div>
-              <div style={{ fontSize: 10, color: "#444", letterSpacing: 1, marginBottom: 8 }}>CUSTOMER MESSAGE</div>
-              <div style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 4, padding: 12, fontSize: 12, color: "#999", lineHeight: 1.6 }}>
-                {selected.messageText}
+              <div style={{ fontSize: 10, color: "#444", letterSpacing: 1, marginBottom: 10 }}>CHAT HISTORY ({selectedHistory.length} exchange{selectedHistory.length !== 1 ? "s" : ""})</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: 320, overflow: "auto", paddingRight: 4 }}>
+                {selectedHistory.map((e) => (
+                  <div key={e.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ alignSelf: "flex-end", maxWidth: "85%" }}>
+                      <div style={{ padding: "10px 14px", borderRadius: "18px 18px 4px 18px", background: "#25D366", color: "#000", fontSize: 12, lineHeight: 1.5 }}>
+                        {e.messageText}
+                      </div>
+                      <div style={{ fontSize: 9, color: "#444", marginTop: 4, textAlign: "right" }}>{new Date(e.loggedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
+                    </div>
+                    <div style={{ alignSelf: "flex-start", maxWidth: "85%" }}>
+                      <div style={{ padding: "10px 14px", borderRadius: "18px 18px 18px 4px", background: "#141414", border: "1px solid #1e1e1e", borderLeft: "3px solid #f97316", fontSize: 12, color: "#c8bfa8", lineHeight: 1.5 }}>
+                        {e.response}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                        <span className="pill" style={{ background: (VERTICAL_COLOR[e.vertical] || "#888") + "22", color: VERTICAL_COLOR[e.vertical] || "#888", border: `1px solid ${(VERTICAL_COLOR[e.vertical] || "#888")}44`, fontSize: 9 }}>{e.vertical}</span>
+                        <span className="pill" style={{ background: "#1e1e1e", color: "#888", fontSize: 9 }}>{e.category}</span>
+                        {e.escalate && <span className="pill" style={{ background: "#f8717122", color: "#f87171", fontSize: 9 }}>Esc</span>}
+                      </div>
+                      <div style={{ fontSize: 9, color: "#444", marginTop: 4 }}>{new Date(e.loggedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div>
-              <div style={{ fontSize: 10, color: "#444", letterSpacing: 1, marginBottom: 8 }}>AI RESPONSE SENT</div>
-              <div style={{ background: "#141414", border: "1px solid #1e1e1e", borderLeft: "3px solid #d4a853", borderRadius: 4, padding: 12, fontSize: 12, color: "#c8bfa8", lineHeight: 1.7 }}>
-                {selected.response}
-              </div>
-            </div>
-
-            {selected.escalate && selected.staffBrief && (
-              <div>
-                <div style={{ fontSize: 10, color: "#f87171", letterSpacing: 1, marginBottom: 8 }}>▲ STAFF BRIEF (ESCALATED)</div>
-                <div style={{ background: "#1a0f0f", border: "1px solid #3a1a1a", borderRadius: 4, padding: 12, fontSize: 12, color: "#f8a0a0", lineHeight: 1.6 }}>
-                  {selected.staffBrief}
+            {selected.escalate && (
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: "#f87171", letterSpacing: 1, marginBottom: 8 }}>ESCALATION FLOW</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 11 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ background: "#1a1a1a", padding: "4px 8px", borderRadius: 4, color: "#888" }}>1</span>
+                      <span style={{ color: "#999" }}>Customer message received</span>
+                    </div>
+                    <div style={{ borderLeft: "2px solid #2a2a2a", marginLeft: 14, height: 8 }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ background: "#1a1a1a", padding: "4px 8px", borderRadius: 4, color: "#888" }}>2</span>
+                      <span style={{ color: "#999" }}>AI detected escalation trigger (group 10+, rental 7+ days, cancellation, VIP tone, or low confidence)</span>
+                    </div>
+                    <div style={{ borderLeft: "2px solid #2a2a2a", marginLeft: 14, height: 8 }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ background: "#f8717122", padding: "4px 8px", borderRadius: 4, color: "#f87171" }}>3</span>
+                      <span style={{ color: "#f8a0a0" }}>Staff brief generated → Human takes over</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+                {selected.staffBrief && (
+                  <div>
+                    <div style={{ fontSize: 10, color: "#f87171", letterSpacing: 1, marginBottom: 8 }}>▲ STAFF BRIEF</div>
+                    <div style={{ background: "#1a0f0f", border: "1px solid #3a1a1a", borderRadius: 4, padding: 12, fontSize: 12, color: "#f8a0a0", lineHeight: 1.6 }}>
+                      {selected.staffBrief}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div style={{ fontSize: 10, color: "#333", borderTop: "1px solid #1a1a1a", paddingTop: 12 }}>

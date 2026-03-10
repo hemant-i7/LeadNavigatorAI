@@ -1,7 +1,8 @@
 import { IncomingMessage, AgentResponse } from "@/types";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const SYSTEM_PROMPT = `You are a premium Dubai tourism & car rental concierge AI.
 
@@ -47,6 +48,7 @@ Message: ${msg.messageText}`;
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: 1024,
+      responseMimeType: "application/json",
     }
   };
 
@@ -65,7 +67,12 @@ Message: ${msg.messageText}`;
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
   try {
-    return JSON.parse(raw.replace(/```json|```/g, "").trim()) as AgentResponse;
+    const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as AgentResponse;
+    if (!parsed.vertical || !["Tourism", "Car Rental", "Unknown"].includes(parsed.vertical)) {
+      parsed.vertical = "Unknown";
+    }
+    return parsed;
   } catch {
     return {
       vertical: "Unknown",
