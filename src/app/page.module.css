@@ -1,0 +1,25 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 6rem 1rem;
+}
+
+.title {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.description {
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.code {
+  padding: 0.2rem 0.4rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0.25rem;
+  font-family: var(--font-geist-mono);
+}
